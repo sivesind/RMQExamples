@@ -5,6 +5,7 @@ https://www.rabbitmq.com/tutorials/tutorial-six-dotnet.html
 
 EasyNetQ:
 https://github.com/EasyNetQ/EasyNetQ
+
 EasyNetQ Advanced API:
 https://github.com/EasyNetQ/EasyNetQ/wiki/the-advanced-api
 
