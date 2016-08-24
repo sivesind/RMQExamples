@@ -3,6 +3,12 @@
 Kodeeksempler for integrasjon mellom TransMed og SystemX. Koden bruker EasyNetQ rammeverk for å forenkle bruk av RabbitMQ, men konseptene stort sett språkuavhengig. Ref:
 https://www.rabbitmq.com/tutorials/tutorial-six-dotnet.html
 
+EasyNetQ:
+https://github.com/EasyNetQ/EasyNetQ
+EasyNetQ Advanced API:
+https://github.com/EasyNetQ/EasyNetQ/wiki/the-advanced-api
+
+
 ## Hvordan teste?
 
 Åpne solution i Visual Studio (^2015), bygg prosjektet og kjør enhetstester i klassen MessagingExamples.cs. (avhengigheter lastes ned med nuget)
