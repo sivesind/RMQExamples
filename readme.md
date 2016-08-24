@@ -1,6 +1,6 @@
 ﻿## Hensikt
 
-Kodeeksempler for integrasjon mellom TransMed og SystemX. Koden bruker EasyNetQ rammeverk for å forenkle bruk av RabbitMQ, men kosenptene er de samme uansett språk. Det meste er hentet herfra:
+Kodeeksempler for integrasjon mellom TransMed og SystemX. Koden bruker EasyNetQ rammeverk for å forenkle bruk av RabbitMQ, men konseptene stort sett språkuavhengig. Ref:
 https://www.rabbitmq.com/tutorials/tutorial-six-dotnet.html
 
 ## Hvordan teste?
@@ -9,12 +9,9 @@ https://www.rabbitmq.com/tutorials/tutorial-six-dotnet.html
 Du må også ha en testrunner for NUnit, f.eks. 
 - ReSharper: https://www.jetbrains.com/resharper/
 - NUnit Test Adapter for Visual Studio: http://nunit.org/index.php?p=vsTestAdapter&r=2.6.4
-(eller bare endre koden til å kjøre fra en Main :-))
 
-## Contributors
+(eller bare endre koden til å kjøre fra en Main-klasse :-))
 
-Lars Eirik Sivesind
-Systemarkitekt
-Locus Public Safety AS
-les@locus.no
-95438171
+## Kontaktinfo
+
+Lars Eirik Sivesind, Systemarkitekt, Locus Public Safety AS, les@locus.no, 95438171
