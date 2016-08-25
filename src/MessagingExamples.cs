@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Globalization;
 using System.Threading;
 using SystemXTransMedExamples.SystemXAPI;
@@ -37,6 +38,9 @@ namespace SystemXTransMedExamples
                     _waitForMessage.Set();
                 });
 
+
+
+
             //TransMed publiserer event
             var eventToPublish =
                 new Message<PatientHaveReceivedTreatmentAndCanBeInvoicedA97Event>(new PatientHaveReceivedTreatmentAndCanBeInvoicedA97Event
@@ -45,12 +49,13 @@ namespace SystemXTransMedExamples
                     TreatmentDescription = "Stivkrampevaksine",
                     UserId = "les-123"
                 });
+
             //sett AMQP properties (correlationid settes av easynetq, trenger ikke reply-to siden vi ikke skal ha svar)
             eventToPublish.Properties.Expiration =
                 TimeSpan.FromDays(2).TotalMilliseconds.ToString(CultureInfo.InvariantCulture); //ttl
-            eventToPublish.Properties.AppId = "TransMed"; //tilsvarer muligens "sender"
+            eventToPublish.Properties.AppId = "TransMed"; //tilsvarer sanns. "sender"
 
-            //publish med routingkey
+            //publish
             _advancedBus.Publish(_systemXExchange, $"event.{nameof(PatientHaveReceivedTreatmentAndCanBeInvoicedA97Event)}", true, eventToPublish);
 
             _waitForMessage.WaitOne(3000);
@@ -60,79 +65,89 @@ namespace SystemXTransMedExamples
         [Test]
         public void TransMedRequestsEPJ()
         {
-            //SystemX lytter på command og svarer
+            //SystemX lytter på request og har kode for å sende reply
             _advancedBus.Consume(_systemXQueue,
-                (IMessage<GetEPJSummaryCommand> requestEPJMsg, MessageReceivedInfo info) =>
+                (IMessage<GetEPJSummaryRequest> requestEPJMsg, MessageReceivedInfo info) =>
                 {
                     Console.WriteLine($"SystemX mottok forespørsel om pasientjournal: {JsonConvert.SerializeObject(requestEPJMsg.Body)}");
-                    var responseToTransMed = new Message<GetEPJSummaryCommandResponse>(new GetEPJSummaryCommandResponse
-                    {
-                        NIN = requestEPJMsg.Body.NIN,
-                        PatientData1 = "Journaldata som må spesifiseres av prosjektet 1",
-                        PatientData2 = "Journaldata som må spesifiseres av prosjektet 2",
-                        PatientData3 = "Journaldata som må spesifiseres av prosjektet 3"
-
-                    });
-                    responseToTransMed.Properties.CorrelationId = requestEPJMsg.Properties.CorrelationId;
-                    responseToTransMed.Properties.AppId = "SystemX";
-                    responseToTransMed.Properties.Expiration = "5000";
-
-                    //svarer på reply-to, som er en exclusive kø som transmed lytter midlertidig på
+                    var responseToTransMed = CreateResponseToTransMed(requestEPJMsg);
+                    //svarer på reply-to, som er en exclusive kø som TransMed lytter midlertidig på
                     _advancedBus.Publish(Exchange.GetDefault(), requestEPJMsg.Properties.ReplyTo, false, responseToTransMed);
 
                 });
 
             //TransMed gjør forespørsel og forventer svar på temporærkø
-            //lytt på temporær svarkø
+            //lag temporær exclusive svarkø
             var responseQueue = _advancedBus.QueueDeclare();
             try
             {
+                //lytt temporært på svarkø
                 _advancedBus.Consume(responseQueue,
-                    (IMessage<GetEPJSummaryCommandResponse> epjMsg, MessageReceivedInfo info) =>
+                    (IMessage<GetEPJSummaryReply> epjMsg, MessageReceivedInfo info) =>
                     {
                         Console.WriteLine($"TransMed fikk pasientjournal: {JsonConvert.SerializeObject(epjMsg.Body)}");
                         _waitForMessage.Set();
                     });
 
+                //lag request
+                var epjRequest = CreateEpjRequest(responseQueue);
 
-                var requestEPJCommand =
-                    new Message<GetEPJSummaryCommand>(new GetEPJSummaryCommand
-                    {
-                        NIN = "12345678901"
-                    });
-                //sett AMQP properties (correlationid settes av easynetq)
-                requestEPJCommand.Properties.Expiration = "5000";
-                requestEPJCommand.Properties.AppId = "TransMed"; //tilsvarer muligens "sender"
-                requestEPJCommand.Properties.ReplyTo = responseQueue.Name; //sett reply-to så systemx kan svare
+                //publiser request
+                _advancedBus.Publish(_systemXExchange, $"command.{nameof(GetEPJSummaryRequest)}", true, epjRequest);
 
-                //publish med routingkey
-                _advancedBus.Publish(_systemXExchange, $"command.{nameof(GetEPJSummaryCommand)}", true, requestEPJCommand);
-
-                _waitForMessage.WaitOne(10000);
+                Console.WriteLine(_waitForMessage.WaitOne(3000)
+                    ? "Fikk svar innen valgt timeout"
+                    : "Fikk ikke svar innen valgt timeout, kan velge å prøve igjen om ønskelig");
             }
             finally
             {
-                _advancedBus.QueueDelete(responseQueue);
+                _advancedBus.QueueDelete(responseQueue); //sannsynligvis ikke nødvendig
             }
         }
 
+        private static Message<GetEPJSummaryRequest> CreateEpjRequest(IQueue responseQueue)
+        {
+            var requestEPJCommand =
+                new Message<GetEPJSummaryRequest>(new GetEPJSummaryRequest
+                {
+                    NIN = "12345678901"
+                });
+            //sett AMQP properties (correlationid settes av easynetq)
+            requestEPJCommand.Properties.Expiration = "3500";
+            requestEPJCommand.Properties.AppId = "TransMed"; //tilsvarer muligens "sender"
+            requestEPJCommand.Properties.ReplyTo = responseQueue.Name; //sett reply-to så systemx kan svare
+            return requestEPJCommand;
+        }
+
+        private static Message<GetEPJSummaryReply> CreateResponseToTransMed(IMessage<GetEPJSummaryRequest> requestEPJMsg)
+        {
+            var responseToTransMed = new Message<GetEPJSummaryReply>(new GetEPJSummaryReply
+            {
+                NIN = requestEPJMsg.Body.NIN,
+                PatientData1 = "Journaldata som må spesifiseres av prosjektet 1",
+                PatientData2 = "Journaldata som må spesifiseres av prosjektet 2",
+                PatientData3 = "Journaldata som må spesifiseres av prosjektet 3"
+            });
+            responseToTransMed.Properties.CorrelationId = requestEPJMsg.Properties.CorrelationId;
+            responseToTransMed.Properties.AppId = "SystemX";
+            responseToTransMed.Properties.Expiration = "10000";
+            return responseToTransMed;
+        }
 
         #region Framework
 
         private readonly AutoResetEvent _waitForMessage = new AutoResetEvent(false);
 
         [SetUp]
-        public void EachTest()
-        {
-            _waitForMessage.Reset();
-        }
-
-        [OneTimeSetUp]
-        public void InitOnce()
+        public void Init()
         {
             try
             {
+                _waitForMessage.Reset();
+                
                 //connect
+                Stopwatch w = new Stopwatch();
+                w.Start();
                 _advancedBus = RabbitHutch.CreateBus(
                     _connectionConfiguration,
                     new AdvancedBusEventHandlers(
@@ -140,6 +155,8 @@ namespace SystemXTransMedExamples
                         disconnected: OnRabbitConnectionStateChanged),
                     RegisterServices
                     ).Advanced;
+                w.Stop();
+                Console.WriteLine($"Oppkobling: {w.ElapsedMilliseconds} ms");
 
                 //SystemX
                 _systemXExchange = GetExchange("exchange.to.SystemX.from.TransMed");
@@ -157,7 +174,7 @@ namespace SystemXTransMedExamples
             }
         }
 
-        [OneTimeTearDown]
+        [TearDown]
         public void Dispose()
         {
             _advancedBus.QueueDelete(_systemXQueue);

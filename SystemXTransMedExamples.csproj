@@ -58,12 +58,14 @@
   <ItemGroup>
     <Compile Include="src\MessagingExamples.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="src\SystemXAPI\GetEPJSummaryCommandResponse.cs" />
-    <Compile Include="src\SystemXAPI\GetEPJSummaryCommand.cs" />
+    <Compile Include="src\SystemXAPI\OpenPatientJournalCommand.cs" />
+    <Compile Include="src\SystemXAPI\GetEPJSummaryReply.cs" />
+    <Compile Include="src\SystemXAPI\GetEPJSummaryRequest.cs" />
     <Compile Include="src\SystemXAPI\PatientHaveReceivedTreatmentAndCanBeInvoicedA97Event.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+    <None Include="readme.md" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

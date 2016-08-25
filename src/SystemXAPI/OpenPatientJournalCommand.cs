@@ -3,11 +3,9 @@
     /// <summary>
     /// Serialiseres til JSON over linja, EasyNetQ gjør dette for oss.
     /// </summary>
-    public class GetEPJSummaryCommandResponse
+    public class OpenPatientJournalCommand
     {
         public string NIN;
-        public string PatientData1;
-        public string PatientData2;
-        public string PatientData3;
+        public uint WorkingPosition;
     }
 }
