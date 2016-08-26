@@ -25,7 +25,7 @@ namespace SystemXTransMedExamples
 
         private readonly ConnectionConfiguration _connectionConfiguration =
             new ConnectionStringParser().Parse(
-                "host=WIN-O8ULS03I5IB;virtualhost=systemx;username=systemx;password=systemx;publisherConfirms=true;product=systemxtransmedtest;persistentMessages=false;timeout=35");
+                "host=larse3,les-laptop;virtualhost=systemx;username=systemx;password=systemx;publisherConfirms=true;product=systemxtransmedtest;persistentMessages=false;timeout=35");
 
         [Test]
         public void TransMedPublishesEvent()
