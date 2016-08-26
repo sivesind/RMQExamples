@@ -25,7 +25,7 @@ namespace SystemXTransMedExamples
 
         private readonly ConnectionConfiguration _connectionConfiguration =
             new ConnectionStringParser().Parse(
-                "host=larse3,les-laptop;virtualhost=systemx;username=systemx;password=systemx;publisherConfirms=true;product=systemxtransmedtest;persistentMessages=false;timeout=35");
+                "host=WIN-O8ULS03I5IB;virtualhost=systemx;username=systemx;password=systemx;publisherConfirms=true;product=systemxtransmedtest;persistentMessages=false;timeout=35");
 
         [Test]
         public void TransMedPublishesEvent()
@@ -37,9 +37,6 @@ namespace SystemXTransMedExamples
                     Console.WriteLine($"SystemX mottok melding med routingkey {info.RoutingKey}: {JsonConvert.SerializeObject(msg.Body)}");
                     _waitForMessage.Set();
                 });
-
-
-
 
             //TransMed publiserer event
             var eventToPublish =
@@ -78,11 +75,11 @@ namespace SystemXTransMedExamples
 
             //TransMed gjør forespørsel og forventer svar på temporærkø
             //lag temporær exclusive svarkø
-            var responseQueue = _advancedBus.QueueDeclare();
+            var replyQueue = _advancedBus.QueueDeclare();
             try
             {
                 //lytt temporært på svarkø
-                _advancedBus.Consume(responseQueue,
+                _advancedBus.Consume(replyQueue,
                     (IMessage<GetEPJSummaryReply> epjMsg, MessageReceivedInfo info) =>
                     {
                         Console.WriteLine($"TransMed fikk pasientjournal: {JsonConvert.SerializeObject(epjMsg.Body)}");
@@ -90,7 +87,7 @@ namespace SystemXTransMedExamples
                     });
 
                 //lag request
-                var epjRequest = CreateEpjRequest(responseQueue);
+                var epjRequest = CreateEpjRequest(replyQueue);
 
                 //publiser request
                 _advancedBus.Publish(_systemXExchange, $"command.{nameof(GetEPJSummaryRequest)}", true, epjRequest);
@@ -101,7 +98,7 @@ namespace SystemXTransMedExamples
             }
             finally
             {
-                _advancedBus.QueueDelete(responseQueue); //sannsynligvis ikke nødvendig
+                _advancedBus.QueueDelete(replyQueue); //sannsynligvis ikke nødvendig
             }
         }
 
@@ -121,17 +118,17 @@ namespace SystemXTransMedExamples
 
         private static Message<GetEPJSummaryReply> CreateResponseToTransMed(IMessage<GetEPJSummaryRequest> requestEPJMsg)
         {
-            var responseToTransMed = new Message<GetEPJSummaryReply>(new GetEPJSummaryReply
+            var replyToTransMed = new Message<GetEPJSummaryReply>(new GetEPJSummaryReply
             {
                 NIN = requestEPJMsg.Body.NIN,
                 PatientData1 = "Journaldata som må spesifiseres av prosjektet 1",
                 PatientData2 = "Journaldata som må spesifiseres av prosjektet 2",
                 PatientData3 = "Journaldata som må spesifiseres av prosjektet 3"
             });
-            responseToTransMed.Properties.CorrelationId = requestEPJMsg.Properties.CorrelationId;
-            responseToTransMed.Properties.AppId = "SystemX";
-            responseToTransMed.Properties.Expiration = "10000";
-            return responseToTransMed;
+            replyToTransMed.Properties.CorrelationId = requestEPJMsg.Properties.CorrelationId;
+            replyToTransMed.Properties.AppId = "SystemX";
+            replyToTransMed.Properties.Expiration = "10000";
+            return replyToTransMed;
         }
 
         #region Framework

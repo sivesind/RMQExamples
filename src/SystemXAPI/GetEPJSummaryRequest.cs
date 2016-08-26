@@ -5,6 +5,9 @@
     /// </summary>
     public class GetEPJSummaryRequest
     {
+        /// <summary>
+        /// Identifikator.
+        /// </summary>
         public string NIN;
     }
 }
