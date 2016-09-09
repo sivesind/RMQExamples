@@ -1,6 +1,9 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
+using System.Linq;
+using System.Reflection;
 using System.Threading;
 using SystemXTransMedExamples.SystemXAPI;
 using EasyNetQ;
@@ -219,8 +222,44 @@ namespace SystemXTransMedExamples
 
         private void RegisterServices(IServiceRegister obj)
         {
+            obj.Register<ITypeNameSerializer>(provider => new SimpleTypeNameSerializer());
         }
 
         #endregion
+    }
+
+    internal class SimpleTypeNameSerializer : ITypeNameSerializer
+    {
+        private readonly List<Type> _allowedTypes;
+        private const string AllowedNamespace = "SystemXTransMedExamples.SystemXAPI";
+
+        public SimpleTypeNameSerializer()
+        {
+            _allowedTypes = Assembly.GetExecutingAssembly()
+                                   .GetTypes()
+                                   .Where(x => x.IsClass && x.Namespace == AllowedNamespace) // get all the classes in the specified namespace
+                                   .ToList();
+        }
+
+        public string Serialize(Type type)
+        {
+            if (type.Namespace != AllowedNamespace)
+            {
+                throw new EasyNetQException($"Invalid class. Only classes from the namespace {AllowedNamespace} are allowed");
+            }
+            return type.Name;
+        }
+
+        public Type DeSerialize(string typeName)
+        {
+            var type = _allowedTypes.FirstOrDefault(t => t.Name == typeName);
+
+            if (type == null)
+            {
+                throw new EasyNetQException($"Cannot find type {typeName}");
+            }
+
+            return type;
+        }
     }
 }
