@@ -5,9 +5,11 @@ using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
+using System.Threading.Tasks;
 using SystemXTransMedExamples.SystemXAPI;
 using EasyNetQ;
 using EasyNetQ.ConnectionString;
+using EasyNetQ.Producer;
 using EasyNetQ.Topology;
 using Newtonsoft.Json;
 using NUnit.Framework;
@@ -19,6 +21,7 @@ namespace SystemXTransMedExamples
     public class MessagingExamples
     {
         private IAdvancedBus _advancedBus;
+        private SystemXRpc _rpc;
 
         private IExchange _systemXExchange;
         private IQueue _systemXQueue;
@@ -63,7 +66,7 @@ namespace SystemXTransMedExamples
 
 
         [Test]
-        public void TransMedRequestsEPJ()
+        public async Task TransMedRequestsEPJ()
         {
             //SystemX lytter på request og har kode for å sende reply
             _advancedBus.Consume(_systemXQueue,
@@ -73,35 +76,25 @@ namespace SystemXTransMedExamples
                     var responseToTransMed = CreateResponseToTransMed(requestEPJMsg);
                     //svarer på reply-to, som er en exclusive kø som TransMed lytter midlertidig på
                     _advancedBus.Publish(Exchange.GetDefault(), requestEPJMsg.Properties.ReplyTo, false, responseToTransMed);
-
                 });
 
             //TransMed gjør forespørsel og forventer svar på temporærkø
             //lag temporær exclusive svarkø
-            var replyQueue = _advancedBus.QueueDeclare();
-            try
+
+            var getEpjSummaryRequest = new GetEPJSummaryRequest() {NIN = "12345678901"};
+
+            var requestAsync = await _rpc.RequestAsync<GetEPJSummaryRequest, GetEPJSummaryReply>(getEpjSummaryRequest, _systemXExchange, $"command.{nameof(GetEPJSummaryRequest)}");
+
+            if (requestAsync == null)
             {
-                //lytt temporært på svarkø
-                _advancedBus.Consume(replyQueue,
-                    (IMessage<GetEPJSummaryReply> epjMsg, MessageReceivedInfo info) =>
-                    {
-                        Console.WriteLine($"TransMed fikk pasientjournal: {JsonConvert.SerializeObject(epjMsg.Body)}");
-                        _waitForMessage.Set();
-                    });
-
-                //lag request
-                var epjRequest = CreateEpjRequest(replyQueue);
-
-                //publiser request
-                _advancedBus.Publish(_systemXExchange, $"command.{nameof(GetEPJSummaryRequest)}", true, epjRequest);
-
-                Console.WriteLine(_waitForMessage.WaitOne(3000)
-                    ? "Fikk svar innen valgt timeout"
-                    : "Fikk ikke svar innen valgt timeout, kan velge å prøve igjen om ønskelig");
+                Console.WriteLine("Got null");
             }
-            finally
+            else
             {
-                _advancedBus.QueueDelete(replyQueue); //sannsynligvis ikke nødvendig
+                Console.WriteLine(requestAsync.NIN);
+                Console.WriteLine(requestAsync.PatientData1);
+                Console.WriteLine(requestAsync.PatientData2);
+                Console.WriteLine(requestAsync.PatientData3);
             }
         }
 
@@ -166,6 +159,10 @@ namespace SystemXTransMedExamples
                 _transMedExchange = GetExchange("exchange.to.TransMed.from.SystemX");
                 _transMedQueue = GetQueue("queue.to.TransMed.from.SystemX");
                 _advancedBus.Bind(_transMedExchange, _transMedQueue, "#");
+
+
+                _rpc = new SystemXRpc(_advancedBus);
+                
             }
             catch (Exception e)
             {
